@@ -1,5 +1,9 @@
-qnormall <-
-function( seqfiles , arrayfiles, cores="max" ){
+qnormRT <-
+function( RepliSeqBedGraphs , RepliChipFiles, cores="max" ){
+	
+	arrayfiles <- RepliChipFiles
+	seqfiles <- RepliSeqBedGraphs
+	
 	library(parallel)
 	if(cores=="max"){cores=detectCores()-1}
 	
@@ -7,12 +11,12 @@ function( seqfiles , arrayfiles, cores="max" ){
 	numseqfiles=length(seqfiles)
 	numarrayfiles=length(arrayfiles)
 	
-	arrayheads<-lapply(1:numarrayfiles,function(x) read.delim(pipe(paste("head",arrayfiles[x]))) )
-	numarraycells<-unlist(lapply(arrayheads,ncol))-2
+	# find the number of samples in each file containing Repli-chip data
+	arrayheads<-lapply(1:numarrayfiles,function(x) unlist(read.delim(pipe(paste("head -n 1",arrayfiles[x])), stringsAsFactors=F, header=F) ))
+	arraysamplenames<-lapply(arrayheads,"[",-c(1,2))
+	numarraycells<-unlist(lapply(arraysamplenames,length))
 	
-	cat("pooling all data\n")
-	#seqscores<-unlist(mclapply(1:numseqfiles, function(x) seqdata[[x]][,4] , mc.cores=cores))
-	#arrayscores<-unlist(mclapply(1:numarrayfiles, function(x) as.vector(arraydata[[x]][,3:ncol(arraydata[[x]])]), mc.cores=cores))
+	# create a pool of all scores in all samples in all files
 	allscores<-unlist(mclapply(1:(numarrayfiles+numseqfiles), function(x){
 		
 		if(x<=numseqfiles){
@@ -28,32 +32,31 @@ function( seqfiles , arrayfiles, cores="max" ){
 		
 	}, mc.cores=cores))
 	
-	
-	
-	
-	
-	
-	if(cores>numseqfiles){cores2=numseqfiles} else{cores2=cores}
+	outnames1<-paste0("repliseq_",basename(removeext(seqfiles)),"_qnormToPool.bg")
+	outnames2<-lapply(1:numarrayfiles,function(x) paste0("replichip_",basename(removeext(arrayfiles[x])),arraysamplenames[[x]],"_qnormToPool.txt"))
+	allnames<-c(outnames1,unlist(outnames2))
+
+	# quantile normalize each Repli-seq file and save to a new bedGraph
 	cat("normalizing sequencing data\n")
+	if(cores>numseqfiles){cores2=numseqfiles} else{cores2=cores}
 	mclapply(1:numseqfiles, function(x){
 		seqdata<-read.tsv(seqfiles[x])
 		curref<-sample(allscores,nrow(seqdata))
 		seqdata[,4][order(seqdata[,4])]<-curref[order(curref)]
-		outname<-paste(basename(removeext(seqfiles[x])),"_qnormToPool.bg",sep="")
-		print(outname)
-		write.tsv(seqdata,file=outname)
+		write.tsv(seqdata,file=outnames1[x])
 	}, mc.cores=cores2)
 	
-	if(cores>numarrayfiles){cores2=numarrayfiles} else{cores2=cores}
+	# quantile normalize each Repli-chip file and save to a new file
 	cat("normalizing array data\n")
+	if(cores>numarrayfiles){cores2=numarrayfiles} else{cores2=cores}
 	mclapply(1:numarrayfiles, function(x){
 		for(i in 1:numarraycells[x]){
 			arraydata<-read.delim(pipe(paste("cut -f 1,2,",i+2," ",arrayfiles[x],sep="")),header=TRUE)
 			curref<-sample(allscores,nrow(arraydata))
 			arraydata[,3][order(arraydata[,3])]<-curref[order(curref)]
-			outname<-paste(basename(removeext(arrayfiles[x])),"_",colnames(arraydata)[3],"_qnormToPool.txt",sep="")
-			print(outname)
-			write.tsv(arraydata,file=outname)
+			write.tsv(arraydata,file=outnames2[[x]][i])
 		}
 	}, mc.cores=cores2)
+
+	return(allnames)
 }
