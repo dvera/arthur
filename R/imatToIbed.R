@@ -9,7 +9,7 @@ imatToIbed <- function( imat , binsize , prefix , minInteractions=1 , threads=ge
 
   triplet <- mclapply(1:length(chroms),function(x){
     s <- summary(imat[[x]])
-    s <- s[which(s[,3]>=minInteractions),]
+    s <- s[which(abs(s[,3])>=minInteractions),]
     s[,1]=s[,1]*binsize
     s[,2]=s[,2]*binsize
     data.frame(
