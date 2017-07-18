@@ -42,3 +42,4 @@ bamToImat <- function(bedFile , binsize , minInteractions=1 , minQual=20 , threa
   names(res) <- bedFile
   return(matlist)
 }
+
