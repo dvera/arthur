@@ -1,16 +1,8 @@
 bamToImat <- function(bedFile , binsize , minInteractions=1 , minQual=20 , threads=getOption("threads",1L) ){
 
   require(Matrix)
-
+  options(scipen=99999)
   numfiles <- length(bedFile)
-  
-  chroms <- sort(as.character(unlist(cmdRun(paste("cut -f 1",bedFile[1],"| uniq"),lines=T))))
-  chroms <- chroms[which(chroms!="chrY")]
-
-  outnames <- lapply(1:numfiles,function(x){
-    paste0(basename(removeext(bedFile[x])),"_q",minQual,"_min",minInteractions,"_",chroms,"_w",binsize,".imat")
-  })
-
   
   cmdStrings <- paste(
     "bedtools bamtobed -bedpe -i",bedFile," | awk '{",
@@ -19,17 +11,19 @@ bamToImat <- function(bedFile , binsize , minInteractions=1 , minQual=20 , threa
         "right=int($6/",binsize,");",
         "if(left<right){print $1,left,right}",
         "else{print $1,right,left}",
-      "}' OFS='\t' | sort -T . -S 10G -k1,1 -k2,2n -k3,3n | uniq -c | awk '{",
+      "}}' OFS='\t' | sort -T . -S 10G -k1,1 -k2,2n -k3,3n | uniq -c | awk '{",
         "if($1>=",minInteractions,"){",
           "print $2,$3,$4,$1",
         "}",
       "}' OFS='\t'"
   )
 
-  res <- cmdRun(cmdString,threads=threads,tsv=T)
+  res <- cmdRun(cmdStrings,threads=threads,tsv=T)
 
   res <- mclapply(1:numfiles,function(x){
+    
     y=split(res[[x]],res[[x]][,1])
+    chroms <- names(y)
     y=lapply(y,"[",-1)
     y=lapply(y,data.matrix)
     matlist = lapply(seq_along(chroms),function(m){
