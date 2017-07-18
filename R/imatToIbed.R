@@ -4,8 +4,8 @@ imatToIbed <- function( imat , binsize , prefix , minInteractions=1 , threads=ge
   options(scipen=99999)
 
   chroms <- names(imat)
-
-  outnames <- paste0(prefix,"_w",binsize,".ibed")
+  if(any(is.null(names(imat)))){ stop("matrices in supplied imat list must have names")}
+  outnames <- paste0(names(,"_w",binsize,".ibed")
 
   triplet <- mclapply(1:length(chroms),function(x){
     s <- summary(imat[[x]])
