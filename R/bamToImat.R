@@ -19,19 +19,25 @@ bamToImat <- function(bedFile , binsize , minInteractions=1 , minQual=20 , threa
   )
 
   res <- cmdRun(cmdStrings,threads=threads,tsv=T)
-
+  
   res <- mclapply(1:numfiles,function(x){
     
     y=split(res[[x]],res[[x]][,1])
+    yl=unlist(lapply(y,nrow))
+    y=y[which(yl>100)]
     chroms <- names(y)
     y=lapply(y,"[",-1)
     y=lapply(y,data.matrix)
     matlist = lapply(seq_along(chroms),function(m){
       numbins <- max(y[[m]][,1:2])
-      spMatrix(numbins,numbins,y[[m]][,1],y[[m]][,2],y[[m]][,3])
+      z=spMatrix(numbins,numbins,y[[m]][,1],y[[m]][,2],y[[m]][,3])
+      return(z)
     })
+    names(matlist) <- chroms
     return(matlist)
   },mc.cores=threads)
+  
+  
   
   names(res) <- bedFile
   return(matlist)
