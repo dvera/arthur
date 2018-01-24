@@ -64,6 +64,9 @@ wtf=lapply(1:numComps,function(compNum){
   bgl1=bgl[,group1]
   bgl2=bgl[,group2]
 
+  bga1=rowMeans(bgl1)
+  bga2=rowMeans(bgl2)
+
   numSamples1=length(group1)
   numSamples2=length(group2)
 
@@ -101,14 +104,14 @@ wtf=lapply(1:numComps,function(compNum){
   }))))
 
   rownames(results)=NULL
-  results <- results[which(results$localPvalue <=0.05),]
+#  results <- results[which(results$localPvalue <=0.05),]
   results$localQvalue=p.adjust(results$localPvalue)
   withinCdf <- ecdf(results$withinMeanMean)
   results$globalPvalue <- unlist(lapply(results$acrossMeanDist,withinCdf))
   results$globalPvalue <- 1-results$globalPvalue
   results$globalQvalue <- p.adjust(results$globalPvalue)
   results$localQvalue  <- p.adjust(results$localPvalue)
-
+  
   rgbm <- matrix(rep(0,(3*numRows)),ncol=3)
   lowLocQ <- which(results$localQvalue  <= 0.05)
   lowGloQ <- which(results$globalQvalue <= 0.05)
