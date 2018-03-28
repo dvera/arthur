@@ -32,7 +32,7 @@ if(length(unique(allFileLines))>1){
 # define comparisons
 i=1:length(bgFilesList)
 eg=unique(t(apply(expand.grid(i,i),1,sort)))
-eg=eg[which(eg[,1]!=eg[,2]),]
+eg=eg[which(eg[,1]!=eg[,2]),,drop=F]
 nm=eg
 nm[] <- setNames[nm]
 numComps <- nrow(eg)
@@ -45,7 +45,7 @@ pdfNames <- paste0(compNames,".pdf")
 
 
 
-cat("reading ",numFiles," bedGraph files...\n")
+#cat("reading ",numFiles," bedGraph files...\n")
 bgs <- tsvRead(allFiles,threads=threads)
 bgl <- as.data.frame(lapply(bgs,"[",4))
 numRows <- nrow(bgl)
@@ -62,8 +62,8 @@ wtf=lapply(1:numComps,function(compNum){
   group1=which(fileIndex==eg[compNum,1])
   group2=which(fileIndex==eg[compNum,2])
 
-  bgl1=bgl[,group1]
-  bgl2=bgl[,group2]
+  bgl1=bgl[,group1,drop=F]
+  bgl2=bgl[,group2,drop=F]
 
   bga1=rowMeans(bgl1)
   bga2=rowMeans(bgl2)
@@ -90,7 +90,7 @@ wtf=lapply(1:numComps,function(compNum){
     across_mean  <- sum(acrossDist)  / numDists
     #withinMeanMax <- max(c(within_mean1,within_mean2))
     withinMeanMean <- mean(c(within_mean1,within_mean2))
-    localPvalue <- t.test(c(as.vector(withinDist1),as.vector(withinDist2)),as.vector(acrossDist))$p.value
+    #localPvalue <- t.test(c(as.vector(withinDist1),as.vector(withinDist2)),as.vector(acrossDist))$p.value
     #scorePvalue <- t.test(as.vector(bgl[x,group1]),as.vector(bgl[x,group2]))$p.value
 
     res <- c(
@@ -107,9 +107,10 @@ wtf=lapply(1:numComps,function(compNum){
     )
     return(res)
   }))))
-
   rownames(results)=NULL
-#  results <- results[which(results$localPvalue <=0.05),]
+
+
+  #results <- results[which(results$localPvalue <=0.05),]
   #results$localQvalue=p.adjust(results$localPvalue)
   withinCdf <- ecdf(results$withinMeanMean)
   results$globalPvalue <- unlist(lapply(results$acrossMeanDist,withinCdf))
