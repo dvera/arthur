@@ -1,4 +1,4 @@
-toePrint <- function( bgFilesList , threads=getOption("threads",1L) )
+toePrint <- function( bgFilesList, removeSuffix=NULL, threads=getOption("threads",1L) )
 
 require(travis)
 
@@ -25,7 +25,6 @@ if(length(unique(allFileLines))>1){
   allFiles <- bgUnify(allFiles)
   newFileLines <- filelines(allFiles,threads=threads)
   bgFilesList <- lapply(1:numSets,function(x){ allFiles[which(fileIndex==x)] })
-  names(bgFilesList) <- setNames
   print(data.frame(group=fileIndex,file=allFiles,linesBeforeUnifying=allFileLines,linesAfterUnifying=newFileLines,percentRemaining=100*newFileLines/allFileLines))
 }
 
@@ -70,18 +69,21 @@ wtf=lapply(1:numComps,function(compNum){
 
   numSamples1=length(group1)
   numSamples2=length(group2)
+
   diag1=diag(matrix(1:(numSamples1^2),nrow=numSamples1))
   diag2=diag(matrix(1:(numSamples2^2),nrow=numSamples2))
 
   index1=1:numSamples1
   index2=(numSamples1+1):sum(numSamples1+numSamples2)
+
   numDists1=((numSamples1^2)-numSamples1)
   numDists2=((numSamples2^2)-numSamples2)
   numDists=numSamples1*numSamples2
 
 
-  results <- as.data.frame(t(as.data.frame(lapply(1:numRows,function(x){
-    allDistances    <-  as.matrix(dist(bgl[x,c(group1,group2),drop=T]))
+  results <- do.call(rbind,lapply(1:numRows,function(x){
+#    results <- as.data.frame(t(as.data.frame(lapply(1:numRows,function(x){
+    allDistances <-  as.matrix(dist(bgl[x,c(group1,group2),drop=T]))
     withinDist1  <-  as.vector(allDistances[index1,index1])[-diag1]
     withinDist2  <-  as.vector(allDistances[index2,index2])[-diag2]
     acrossDist   <-  as.vector(allDistances[index1,index2])
@@ -93,18 +95,18 @@ wtf=lapply(1:numComps,function(compNum){
     #localPvalue <- t.test(c(as.vector(withinDist1),as.vector(withinDist2)),as.vector(acrossDist))$p.value
     #scorePvalue <- t.test(as.vector(bgl[x,group1]),as.vector(bgl[x,group2]))$p.value
 
-    res <- c(
+    res <- data.frame(
       rowNum         = x,
       within_mean1   = within_mean1,
       within_mean2   = within_mean2,
       acrossMeanDist = across_mean,
       #withinMeanMax  = withinMeanMax,
       withinMeanMean = withinMeanMean,
-      localPvalue    = localPvalue
-      #within = paste(c(withinDist1,withinDist2),collapse=","),
-      #across = paste(acrossDist,collapse=",")
+      localPvalue    = localPvalue,
+      within = paste(c(withinDist1,withinDist2),collapse=","),
+      across = paste(acrossDist,collapse=","),
       #scorePvalue    = scorePvalue
-    )
+    stringsAsFactors=F)
     return(res)
   }))))
   rownames(results)=NULL
@@ -112,8 +114,11 @@ wtf=lapply(1:numComps,function(compNum){
 
   #results <- results[which(results$localPvalue <=0.05),]
   #results$localQvalue=p.adjust(results$localPvalue)
-  withinCdf <- ecdf(results$withinMeanMean)
-  results$globalPvalue <- unlist(lapply(results$acrossMeanDist,withinCdf))
+  withinMeanCdf <- ecdf(results$withinMeanMean)
+  withinDists=as.numeric(unlist(lapply(results$within,strsplit,",")))
+  withinCdf <- ecdf(withinDists)
+  acrossDists=as.numeric(unlist(lapply(results$across,strsplit,",")))
+  results$globalPvalue <- unlist(lapply(results$acrossMeanDist,withinMeanCdf))
   results$globalPvalue <- 1-results$globalPvalue
   results$globalQvalue <- p.adjust(results$globalPvalue)
   #results$localQvalue  <- p.adjust(results$localPvalue)
