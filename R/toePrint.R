@@ -80,9 +80,11 @@ wtf=lapply(1:numComps,function(compNum){
   numDists2=((numSamples2^2)-numSamples2)
   numDists=numSamples1*numSamples2
 
+  pb <- txtProgressBar(min = 0, max = numRows, style = 3)
 
-  results <- do.call(rbind,lapply(1:numRows,function(x){
+  results <- do.call(rbind,mclapply(1:numRows,function(x){
 #    results <- as.data.frame(t(as.data.frame(lapply(1:numRows,function(x){
+    setTxtProgressBar(pb, x)
     allDistances <-  as.matrix(dist(bgl[x,c(group1,group2),drop=T]))
     withinDist1  <-  as.vector(allDistances[index1,index1])[-diag1]
     withinDist2  <-  as.vector(allDistances[index2,index2])[-diag2]
@@ -92,9 +94,11 @@ wtf=lapply(1:numComps,function(compNum){
     across_mean  <- sum(acrossDist)  / numDists
     #withinMeanMax <- max(c(within_mean1,within_mean2))
     withinMeanMean <- mean(c(within_mean1,within_mean2))
-    #localPvalue <- t.test(c(as.vector(withinDist1),as.vector(withinDist2)),as.vector(acrossDist))$p.value
-    #scorePvalue <- t.test(as.vector(bgl[x,group1]),as.vector(bgl[x,group2]))$p.value
-
+    localPvalue <- t.test(c(as.vector(withinDist1),as.vector(withinDist2)),as.vector(acrossDist),alternative="l")$p.value
+    scorePvalue <- t.test(as.vector(bgl[x,group1]),as.vector(bgl[x,group2]),alternative="two.sided")$p.value
+    deltaScore= mean(unlist(as.vector(bgl[x,group1,drop=T]))) - mean(unlist(as.vector(bgl[x,group2,drop=T])))
+    
+    
     res <- data.frame(
       rowNum         = x,
       within_mean1   = within_mean1,
@@ -105,12 +109,15 @@ wtf=lapply(1:numComps,function(compNum){
       localPvalue    = localPvalue,
       within = paste(c(withinDist1,withinDist2),collapse=","),
       across = paste(acrossDist,collapse=","),
-      #scorePvalue    = scorePvalue
-    stringsAsFactors=F)
+      scorePvalue    = scorePvalue,
+      deltaScore = deltaScore
+      stringsAsFactors=F
+    )
     return(res)
-  }))))
+    
+  },mc.cores=40,mc.preschedule=T))
   rownames(results)=NULL
-
+  cat("\n")
 
   #results <- results[which(results$localPvalue <=0.05),]
   #results$localQvalue=p.adjust(results$localPvalue)
@@ -120,7 +127,8 @@ wtf=lapply(1:numComps,function(compNum){
   acrossDists=as.numeric(unlist(lapply(results$across,strsplit,",")))
   results$globalPvalue <- unlist(lapply(results$acrossMeanDist,withinMeanCdf))
   results$globalPvalue <- 1-results$globalPvalue
-  results$globalQvalue <- p.adjust(results$globalPvalue)
+  results$globalQvalue <- p.adjust(results$globalPvalue,method="fdr")
+  results$scoreQvalue  <- p.adjust(results$scorePvalue,method="fdr")
   #results$localQvalue  <- p.adjust(results$localPvalue)
 
   www=as.numeric(unlist(strsplit(paste(results$within,collapse=","),",")))
