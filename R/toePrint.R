@@ -1,4 +1,4 @@
-toePrint <- function( bgFilesList, removeSuffix=NULL, threads=getOption("threads",1L) )
+toePrint <- function( bgFilesList, removeSuffix=NULL, scoreP=0.05, globalQ=0.05, threads=getOption("threads",1L) )
 
 require(travis)
 
@@ -110,7 +110,7 @@ wtf=lapply(1:numComps,function(compNum){
       within = paste(c(withinDist1,withinDist2),collapse=","),
       across = paste(acrossDist,collapse=","),
       scorePvalue    = scorePvalue,
-      deltaScore = deltaScore
+      deltaScore = deltaScore,
       stringsAsFactors=F
     )
     return(res)
@@ -127,7 +127,9 @@ wtf=lapply(1:numComps,function(compNum){
   acrossDists=as.numeric(unlist(lapply(results$across,strsplit,",")))
   results$globalPvalue <- unlist(lapply(results$acrossMeanDist,withinMeanCdf))
   results$globalPvalue <- 1-results$globalPvalue
-  results$globalQvalue <- p.adjust(results$globalPvalue,method="fdr")
+  results$globalQvalue <- 1
+  lowScoreP <- which(results$scorePvalue <= scoreP)
+  results$globalQvalue[lowScoreP] <- p.adjust(results$globalPvalue[lowScoreP],method="fdr")
   results$scoreQvalue  <- p.adjust(results$scorePvalue,method="fdr")
   #results$localQvalue  <- p.adjust(results$localPvalue)
 
