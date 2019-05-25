@@ -81,7 +81,9 @@ wtf=lapply(1:numComps,function(compNum){
   numDists=numSamples1*numSamples2
 
   pb <- txtProgressBar(min = 0, max = numRows, style = 3)
-
+  sigmax <- sd(unlist(bgl1))
+  sigmay <- sd(unlist(bgl2))
+  
   results <- do.call(rbind,mclapply(1:numRows,function(x){
 #    results <- as.data.frame(t(as.data.frame(lapply(1:numRows,function(x){
     setTxtProgressBar(pb, x)
@@ -94,12 +96,16 @@ wtf=lapply(1:numComps,function(compNum){
     across_mean  <- sum(acrossDist)  / numDists
     #withinMeanMax <- max(c(within_mean1,within_mean2))
     withinMeanMean <- mean(c(within_mean1,within_mean2))
+    scoreZvalue <- z.test(as.vector(unlist(bgl[x,group1])),as.vector(unlist(bgl[x,group2])),alternative="two.sided",sigma.x=sigmax,sigma.y=sigmay)$p.value
     localPvalue <- t.test(c(as.vector(withinDist1),as.vector(withinDist2)),as.vector(acrossDist),alternative="l")$p.value
     scorePvalue <- t.test(as.vector(bgl[x,group1]),as.vector(bgl[x,group2]),alternative="two.sided")$p.value
     deltaScore= mean(unlist(as.vector(bgl[x,group1,drop=T]))) - mean(unlist(as.vector(bgl[x,group2,drop=T])))
     
     
     res <- data.frame(
+      chrom          = bgs[[1]][x,1],
+      start          = bgs[[1]][x,2],
+      end            = bgs[[1]][x,3],
       rowNum         = x,
       within_mean1   = within_mean1,
       within_mean2   = within_mean2,
@@ -111,6 +117,7 @@ wtf=lapply(1:numComps,function(compNum){
       across = paste(acrossDist,collapse=","),
       scorePvalue    = scorePvalue,
       deltaScore = deltaScore,
+      scoreZvalue = scoreZvalue,
       stringsAsFactors=F
     )
     return(res)
@@ -127,12 +134,42 @@ wtf=lapply(1:numComps,function(compNum){
   acrossDists=as.numeric(unlist(lapply(results$across,strsplit,",")))
   results$globalPvalue <- unlist(lapply(results$acrossMeanDist,withinMeanCdf))
   results$globalPvalue <- 1-results$globalPvalue
+  results$globalPvalue[which(results$globalPvalue==0)] <- 2e-5
   results$globalQvalue <- 1
+  results$globalQvalue2 <- 1
   lowScoreP <- which(results$scorePvalue <= scoreP)
+  lowScoreP2 <- which(results$scorePvalue <= 2*scoreP)
+  results$localQvalue <- p.adjust(results$localPvalue,method="fdr")
   results$globalQvalue[lowScoreP] <- p.adjust(results$globalPvalue[lowScoreP],method="fdr")
+  results$globalQvalue2[lowScoreP2] <- p.adjust(results$globalPvalue[lowScoreP2],method="fdr")
+  #results$globalQvalue <- p.adjust(results$globalPvalue,method="fdr")
   results$scoreQvalue  <- p.adjust(results$scorePvalue,method="fdr")
+  #results$scoreZvalue <- p.adjust(results$scoreZvalue,method="fdr")
   #results$localQvalue  <- p.adjust(results$localPvalue)
+  
+  good1up <- which(results$globalQvalue<=0.05 & results$deltaScore>0)
+  good1dn <- which(results$globalQvalue<=0.05 & results$deltaScore<0)
+  good2up <- which(results$globalQvalue2<=0.05 & results$deltaScore>0)
+  good2dn <- which(results$globalQvalue2<=0.05 & results$deltaScore<0)
 
+  out1up <- data.frame(chrom=results$chrom,start=results$start,end=results$end,stringsAsFactors=F)[good1up,]
+  out1dn <- data.frame(chrom=results$chrom,start=results$start,end=results$end,stringsAsFactors=F)[good1dn,]
+  out2up <- data.frame(chrom=results$chrom,start=results$start,end=results$end,stringsAsFactors=F)[good2up,]
+  out2dn <- data.frame(chrom=results$chrom,start=results$start,end=results$end,stringsAsFactors=F)[good2dn,]
+
+  tsvWrite(out1up,file="out1up.bed")
+  tsvWrite(out1dn,file="out1dn.bed")
+  tsvWrite(out2up,file="out2up.bed")
+  tsvWrite(out2dn,file="out2dn.bed")
+  
+  m1up <- bedtoolsMerge("out1up.bed",250000)
+  m1dn <- bedtoolsMerge("out1dn.bed",250000)
+  m2up <- bedtoolsMerge("out2up.bed",250000)
+  m2dn <- bedtoolsMerge("out2dn.bed",250000)
+  
+  fup=bedtoolsIntersect(m2up,m1up)
+  fdn=bedtoolsIntersect(m2dn,m1dn)
+  
   www=as.numeric(unlist(strsplit(paste(results$within,collapse=","),",")))
 
 
