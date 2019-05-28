@@ -96,7 +96,7 @@ wtf=lapply(1:numComps,function(compNum){
     across_mean  <- sum(acrossDist)  / numDists
     #withinMeanMax <- max(c(within_mean1,within_mean2))
     withinMeanMean <- mean(c(within_mean1,within_mean2))
-    scoreZvalue <- z.test(as.vector(unlist(bgl[x,group1])),as.vector(unlist(bgl[x,group2])),alternative="two.sided",sigma.x=sigmax,sigma.y=sigmay)$p.value
+    #scoreZvalue <- z.test(as.vector(unlist(bgl[x,group1])),as.vector(unlist(bgl[x,group2])),alternative="two.sided",sigma.x=sigmax,sigma.y=sigmay)$p.value
     localPvalue <- t.test(c(as.vector(withinDist1),as.vector(withinDist2)),as.vector(acrossDist),alternative="l")$p.value
     scorePvalue <- t.test(as.vector(bgl[x,group1]),as.vector(bgl[x,group2]),alternative="two.sided")$p.value
     deltaScore= mean(unlist(as.vector(bgl[x,group1,drop=T]))) - mean(unlist(as.vector(bgl[x,group2,drop=T])))
@@ -117,7 +117,7 @@ wtf=lapply(1:numComps,function(compNum){
       across = paste(acrossDist,collapse=","),
       scorePvalue    = scorePvalue,
       deltaScore = deltaScore,
-      scoreZvalue = scoreZvalue,
+      #scoreZvalue = scoreZvalue,
       stringsAsFactors=F
     )
     return(res)
